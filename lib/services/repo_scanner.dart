@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../domain/repo_models.dart';
+import 'repo_analysis.dart' as analysis;
 
 class RepoScanOptions {
   const RepoScanOptions({
@@ -52,11 +53,15 @@ class RepoScanner {
 
     final RepoNode rootNode = context.scanDirectory(rootDirectory, depth: 0);
     final GitSummary git = await _readGitSummary(normalizedRoot, context);
-    final RepoSummary summary = _buildSummary(
+    final RepoSummary summary = analysis.buildRepoSummary(
       rootNode,
-      context: context,
-      git: git,
+      repoName: context.repoName,
+      rootPath: context.rootPath,
       durationMs: stopwatch.elapsedMilliseconds,
+      git: git,
+      ignoredDirectories: List<String>.from(
+        context.options.ignoredDirectoryNames,
+      ),
     );
     final String scannedAtUtc = DateTime.now().toUtc().toIso8601String();
     final RepoSnapshot snapshot = RepoSnapshot(
@@ -81,7 +86,7 @@ class RepoScanner {
       ),
     );
 
-    final String treeText = buildTreeText(rootNode);
+    final String treeText = analysis.buildTreeText(rootNode);
     final String artifactDirectory = p.normalize(
       outputDirectory ?? p.join(normalizedRoot, '.codedrop', 'current'),
     );
@@ -145,110 +150,6 @@ class RepoScanner {
         warnings: context.warnings,
       ),
       treeText: treeText,
-    );
-  }
-
-  RepoSummary _buildSummary(
-    RepoNode rootNode, {
-    required _ScanContext context,
-    required GitSummary git,
-    required int durationMs,
-  }) {
-    final Map<String, int> fileTypeCounts = <String, int>{};
-    final Map<String, _SectionAccumulator> sections =
-        <String, _SectionAccumulator>{};
-    var totalFiles = 0;
-    var totalDirectories = 0;
-    var maxDepth = 0;
-
-    void walk(RepoNode node, int depth) {
-      if (depth > maxDepth) {
-        maxDepth = depth;
-      }
-      if (node.path != '.') {
-        final String sectionId = classifySectionId(node.path);
-        final _SectionAccumulator section = sections.putIfAbsent(
-          sectionId,
-          () => _SectionAccumulator(_metadataForSection(sectionId)),
-        );
-        if (node.isDirectory) {
-          totalDirectories++;
-          section.directoryCount++;
-        } else {
-          totalFiles++;
-          section.fileCount++;
-          fileTypeCounts.update(
-            node.typeLabel,
-            (int value) => value + 1,
-            ifAbsent: () => 1,
-          );
-        }
-        if (section.highlights.length < 6) {
-          section.highlights.add(node.path);
-        }
-      }
-      for (final RepoNode child in node.children) {
-        walk(child, depth + 1);
-      }
-    }
-
-    walk(rootNode, 0);
-
-    final List<RepoSection> sectionList =
-        sections.values
-            .map(
-              (_SectionAccumulator item) => RepoSection(
-                id: item.id,
-                title: item.title,
-                description: item.description,
-                fileCount: item.fileCount,
-                directoryCount: item.directoryCount,
-                highlights: item.highlights,
-              ),
-            )
-            .toList()
-          ..sort((RepoSection a, RepoSection b) {
-            final int delta = (b.fileCount + b.directoryCount).compareTo(
-              a.fileCount + a.directoryCount,
-            );
-            if (delta != 0) {
-              return delta;
-            }
-            return a.title.compareTo(b.title);
-          });
-
-    final List<String> topDirectories =
-        rootNode.children
-            .where((RepoNode child) => child.isDirectory)
-            .map((RepoNode child) => child.name)
-            .toList()
-          ..sort();
-
-    final Map<String, int> sortedTypes = Map<String, int>.fromEntries(
-      fileTypeCounts.entries.toList()
-        ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-          final int delta = b.value.compareTo(a.value);
-          if (delta != 0) {
-            return delta;
-          }
-          return a.key.compareTo(b.key);
-        }),
-    );
-
-    return RepoSummary(
-      repoName: context.repoName,
-      rootPath: context.rootPath,
-      scannedAtUtc: DateTime.now().toUtc().toIso8601String(),
-      scanDurationMs: durationMs,
-      totalFiles: totalFiles,
-      totalDirectories: totalDirectories,
-      maxDepth: maxDepth,
-      topLevelDirectories: topDirectories,
-      fileTypeCounts: sortedTypes,
-      ignoredDirectories: context.options.ignoredDirectoryNames.toList()
-        ..sort(),
-      sections: sectionList,
-      git: git,
     );
   }
 
@@ -380,7 +281,7 @@ class _ScanContext {
             path: _relativePath(rootPath, entity.path),
             name: name,
             kind: RepoNodeKind.file,
-            typeLabel: describeFileType(name, extension),
+            typeLabel: analysis.describeFileType(name, extension),
             extension: extension.isEmpty ? null : extension,
             sizeBytes: stat.size,
           ),
@@ -406,8 +307,8 @@ class _ScanContext {
   }
 }
 
-class _SectionAccumulator {
-  _SectionAccumulator(_SectionMetadata metadata)
+class SectionAccumulator {
+  SectionAccumulator(SectionMetadata metadata)
     : id = metadata.id,
       title = metadata.title,
       description = metadata.description;
@@ -420,8 +321,8 @@ class _SectionAccumulator {
   final List<String> highlights = <String>[];
 }
 
-class _SectionMetadata {
-  const _SectionMetadata(this.id, this.title, this.description);
+class SectionMetadata {
+  const SectionMetadata(this.id, this.title, this.description);
 
   final String id;
   final String title;
@@ -498,46 +399,46 @@ String classifySectionId(String path) {
   return 'workspace';
 }
 
-_SectionMetadata _metadataForSection(String id) {
+SectionMetadata metadataForSection(String id) {
   switch (id) {
     case 'briefing':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'briefing',
         'Briefing',
         'Orientation files that explain the repository and how to use it.',
       );
     case 'core':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'core',
         'Core Source',
         'Primary product code and runtime logic.',
       );
     case 'quality':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'quality',
         'Quality',
         'Tests and verification surfaces that prove behavior.',
       );
     case 'platform':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'platform',
         'Platform',
         'Platform adapters, shells, and native integration surfaces.',
       );
     case 'assets':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'assets',
         'Assets',
         'Static media, fonts, and design resources.',
       );
     case 'control':
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'control',
         'Control Files',
         'Build, configuration, and project authority files.',
       );
     default:
-      return const _SectionMetadata(
+      return const SectionMetadata(
         'workspace',
         'Workspace',
         'Additional files and directories that round out the repository.',
