@@ -38,6 +38,12 @@ flutter build web --release --base-href /KoadMAP_Plus/
 
 The repo now includes a GitHub Pages workflow at `.github/workflows/deploy-pages.yml`. Push to `main` or run the workflow manually to publish the latest web build.
 
+GitHub Pages URL:
+
+- `https://bcaris-rn.github.io/KoadMAP_Plus/`
+
+Pages mode is GitHub-backed. Open the site, paste a repository like `BCaris-RN/KoadMAP_Plus` or a full GitHub URL, and analyze it directly in the browser.
+
 ## Run the headless scanner
 
 ```powershell
