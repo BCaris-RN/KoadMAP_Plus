@@ -71,7 +71,20 @@ class _AppBootstrap extends StatefulWidget {
 
 class _AppBootstrapState extends State<_AppBootstrap> {
   OperatorSession? _session;
-  bool _loading = true;
+
+  static const OperatorSession _guestSession = OperatorSession(
+    email: '',
+    fullName: 'Guest Mode',
+    organization: '',
+    marketingOptIn: false,
+    analyticsOptIn: false,
+    usageOptIn: false,
+    createdAtUtc: '',
+    lastAccessedAtUtc: '',
+    loginCount: 0,
+    scansRun: 0,
+    lastTarget: null,
+  );
 
   @override
   void initState() {
@@ -83,23 +96,11 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     if (widget.initialSession != null) {
       setState(() {
         _session = widget.initialSession;
-        _loading = false;
       });
       return;
     }
 
     final OperatorSession? session = await widget.sessionStore.load();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _session = session;
-      _loading = false;
-    });
-  }
-
-  Future<void> _createSession(AccessDraft draft) async {
-    final OperatorSession session = await widget.sessionStore.create(draft);
     if (!mounted) {
       return;
     }
@@ -131,281 +132,18 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       return;
     }
     setState(() {
-      _session = null;
+      _session = _guestSession;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const _LaunchScreen();
-    }
-
-    if (_session == null) {
-      return _AccessSplash(onContinue: _createSession);
-    }
-
     return RepoWorkbenchPage(
       initialRootPath: widget.initialRootPath,
       autoScanOnStart: widget.autoScanOnStart,
-      session: _session!,
+      session: _session ?? _guestSession,
       onLogout: _logout,
       onScanTracked: _recordScan,
-    );
-  }
-}
-
-class _LaunchScreen extends StatelessWidget {
-  const _LaunchScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.4,
-            colors: <Color>[
-              Color(0xFF19304A),
-              Color(0xFF0A111B),
-              Color(0xFF04070C),
-            ],
-          ),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox(
-                width: 72,
-                height: 72,
-                child: CircularProgressIndicator(strokeWidth: 3.4),
-              ),
-              SizedBox(height: 18),
-              Text(
-                'Initializing KoadMAP Plus',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccessSplash extends StatefulWidget {
-  const _AccessSplash({required this.onContinue});
-
-  final Future<void> Function(AccessDraft draft) onContinue;
-
-  @override
-  State<_AccessSplash> createState() => _AccessSplashState();
-}
-
-class _AccessSplashState extends State<_AccessSplash> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _organizationController = TextEditingController();
-  bool _marketingOptIn = true;
-  bool _analyticsOptIn = true;
-  bool _usageOptIn = true;
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _nameController.dispose();
-    _organizationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final FormState? form = _formKey.currentState;
-    if (form == null || !form.validate()) {
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-    });
-
-    try {
-      await widget.onContinue(
-        AccessDraft(
-          email: _emailController.text.trim(),
-          fullName: _nameController.text.trim(),
-          organization: _organizationController.text.trim(),
-          marketingOptIn: _marketingOptIn,
-          analyticsOptIn: _analyticsOptIn,
-          usageOptIn: _usageOptIn,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              Color(0xFF050811),
-              Color(0xFF0D1725),
-              Color(0xFF05070B),
-            ],
-          ),
-        ),
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              top: -80,
-              left: -60,
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: <Color>[Color(0x55D37C55), Color(0x0010181F)],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -120,
-              right: -40,
-              child: Container(
-                width: 380,
-                height: 380,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: <Color>[Color(0x337AD7C3), Color(0x00070B11)],
-                  ),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0.94, end: 1),
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOutCubic,
-                    builder:
-                        (BuildContext context, double value, Widget? child) {
-                          return Opacity(
-                            opacity: value,
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - value) * 28),
-                              child: child,
-                            ),
-                          );
-                        },
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1220),
-                      child: LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                              final bool compact = constraints.maxWidth < 980;
-                              return compact
-                                  ? Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        _AccessHero(compact: true),
-                                        const SizedBox(height: 20),
-                                        _AccessPanel(
-                                          formKey: _formKey,
-                                          emailController: _emailController,
-                                          nameController: _nameController,
-                                          organizationController:
-                                              _organizationController,
-                                          marketingOptIn: _marketingOptIn,
-                                          analyticsOptIn: _analyticsOptIn,
-                                          usageOptIn: _usageOptIn,
-                                          submitting: _submitting,
-                                          onMarketingChanged: (bool value) =>
-                                              setState(() {
-                                                _marketingOptIn = value;
-                                              }),
-                                          onAnalyticsChanged: (bool value) =>
-                                              setState(() {
-                                                _analyticsOptIn = value;
-                                              }),
-                                          onUsageChanged: (bool value) =>
-                                              setState(() {
-                                                _usageOptIn = value;
-                                              }),
-                                          onSubmit: _submit,
-                                        ),
-                                      ],
-                                    )
-                                  : Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: <Widget>[
-                                        const Expanded(
-                                          flex: 6,
-                                          child: _AccessHero(compact: false),
-                                        ),
-                                        const SizedBox(width: 24),
-                                        Expanded(
-                                          flex: 5,
-                                          child: _AccessPanel(
-                                            formKey: _formKey,
-                                            emailController: _emailController,
-                                            nameController: _nameController,
-                                            organizationController:
-                                                _organizationController,
-                                            marketingOptIn: _marketingOptIn,
-                                            analyticsOptIn: _analyticsOptIn,
-                                            usageOptIn: _usageOptIn,
-                                            submitting: _submitting,
-                                            onMarketingChanged: (bool value) =>
-                                                setState(() {
-                                                  _marketingOptIn = value;
-                                                }),
-                                            onAnalyticsChanged: (bool value) =>
-                                                setState(() {
-                                                  _analyticsOptIn = value;
-                                                }),
-                                            onUsageChanged: (bool value) =>
-                                                setState(() {
-                                                  _usageOptIn = value;
-                                                }),
-                                            onSubmit: _submit,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                            },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -629,7 +367,6 @@ class _RepoWorkbenchPageState extends State<RepoWorkbenchPage> {
                     onBrowse: _browseAndScan,
                     onScan: () => _scanRoot(_rootController.text),
                     onLogout: widget.onLogout,
-                    onCopyEmail: () => _copyText('Email', widget.session.email),
                   ),
                   const SizedBox(height: 16),
                   if (snapshot != null)
@@ -787,7 +524,6 @@ class _CommandDeck extends StatelessWidget {
     required this.onBrowse,
     required this.onScan,
     required this.onLogout,
-    required this.onCopyEmail,
   });
 
   final TextEditingController rootController;
@@ -798,11 +534,11 @@ class _CommandDeck extends StatelessWidget {
   final Future<void> Function() onBrowse;
   final VoidCallback onScan;
   final Future<void> Function() onLogout;
-  final VoidCallback onCopyEmail;
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
+    final bool isGuest = session.email.trim().isEmpty;
     return _Surface(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       child: LayoutBuilder(
@@ -865,37 +601,29 @@ class _CommandDeck extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      session.email,
+                      isGuest ? 'Direct access enabled' : session.email,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: const Color(0xFF99B6D2),
                       ),
                     ),
                   ],
                 ),
-                PopupMenuButton<String>(
-                  tooltip: 'Session options',
-                  onSelected: (String value) {
-                    switch (value) {
-                      case 'copy':
-                        onCopyEmail();
-                        break;
-                      case 'logout':
+                if (!isGuest)
+                  PopupMenuButton<String>(
+                    tooltip: 'Session options',
+                    onSelected: (String value) {
+                      if (value == 'logout') {
                         onLogout();
-                        break;
-                    }
-                  },
-                  itemBuilder: (BuildContext context) =>
-                      <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'copy',
-                          child: Text('Copy email'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'logout',
-                          child: Text('Log out'),
-                        ),
-                      ],
-                ),
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'logout',
+                            child: Text('Clear local profile'),
+                          ),
+                        ],
+                  ),
               ],
             ),
           );
@@ -1118,454 +846,6 @@ class _OperatorTelemetryStrip extends StatelessWidget {
             accent: const Color(0xFFE6C06A),
           ),
       ],
-    );
-  }
-}
-
-class _AccessHero extends StatelessWidget {
-  const _AccessHero({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(0, compact ? 6 : 24, compact ? 0 : 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0x2217222E),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0x333A536D)),
-            ),
-            child: Text(
-              'Repository intelligence, operator-first access',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: const Color(0xFFBFD1E7),
-                letterSpacing: 0.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'KoadMAP Plus',
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -2.4,
-              height: 0.94,
-            ),
-          ),
-          const SizedBox(height: 18),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Text(
-              'Sign in once, capture the operator profile, then move from folder ingest to grouped repo review without losing context.',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: const Color(0xFF9CB0C7),
-                height: 1.45,
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          const _AccessMetricRow(),
-          const SizedBox(height: 26),
-          const _AccessFeatureList(),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessMetricRow extends StatelessWidget {
-  const _AccessMetricRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: const <Widget>[
-        _HeroStat(label: 'Workflow', value: 'Splash -> Access -> Review'),
-        _HeroStat(
-          label: 'Signals',
-          value: 'Email, marketing, analytics, usage',
-        ),
-        _HeroStat(label: 'Targets', value: 'Folders + GitHub repos'),
-      ],
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0x161A2532),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x223D536B)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: const Color(0xFFD37C55),
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessFeatureList extends StatelessWidget {
-  const _AccessFeatureList();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: const <Widget>[
-        _FeatureLine(
-          index: '01',
-          title: 'Identity-backed workspace',
-          body:
-              'Persist the operator, their team, and consent state before scanning begins.',
-        ),
-        _FeatureLine(
-          index: '02',
-          title: 'Marketing-ready capture',
-          body:
-              'Collect email plus opt-ins so product follow-up and reporting can grow later.',
-        ),
-        _FeatureLine(
-          index: '03',
-          title: 'Analytics-aware usage',
-          body:
-              'Track session activity locally now, ready to forward to real telemetry later.',
-        ),
-      ],
-    );
-  }
-}
-
-class _FeatureLine extends StatelessWidget {
-  const _FeatureLine({
-    required this.index,
-    required this.title,
-    required this.body,
-  });
-
-  final String index;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            width: 44,
-            child: Text(
-              index,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: const Color(0x66FFFFFF),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF95A8BF),
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessPanel extends StatelessWidget {
-  const _AccessPanel({
-    required this.formKey,
-    required this.emailController,
-    required this.nameController,
-    required this.organizationController,
-    required this.marketingOptIn,
-    required this.analyticsOptIn,
-    required this.usageOptIn,
-    required this.submitting,
-    required this.onMarketingChanged,
-    required this.onAnalyticsChanged,
-    required this.onUsageChanged,
-    required this.onSubmit,
-  });
-
-  final GlobalKey<FormState> formKey;
-  final TextEditingController emailController;
-  final TextEditingController nameController;
-  final TextEditingController organizationController;
-  final bool marketingOptIn;
-  final bool analyticsOptIn;
-  final bool usageOptIn;
-  final bool submitting;
-  final ValueChanged<bool> onMarketingChanged;
-  final ValueChanged<bool> onAnalyticsChanged;
-  final ValueChanged<bool> onUsageChanged;
-  final Future<void> Function() onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Surface(
-      padding: const EdgeInsets.all(22),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'Log in to the workspace',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Capture the operator profile once. KoadMAP Plus will reuse it for access, telemetry posture, and future outbound workflows.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF93A6BE),
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _AccessInput(
-              controller: emailController,
-              label: 'Email',
-              hintText: 'operator@company.com',
-              keyboardType: TextInputType.emailAddress,
-              validator: (String? value) {
-                final String email = value?.trim() ?? '';
-                final RegExp pattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                if (!pattern.hasMatch(email)) {
-                  return 'Enter a valid email address.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            _AccessInput(
-              controller: nameController,
-              label: 'Full name',
-              hintText: 'Optional',
-            ),
-            const SizedBox(height: 12),
-            _AccessInput(
-              controller: organizationController,
-              label: 'Organization',
-              hintText: 'Team or company',
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Consent posture',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _ConsentTile(
-              value: marketingOptIn,
-              title: 'Marketing contact',
-              subtitle: 'Allow release notes, feature notices, and follow-up.',
-              onChanged: onMarketingChanged,
-            ),
-            _ConsentTile(
-              value: analyticsOptIn,
-              title: 'Analytics',
-              subtitle: 'Allow anonymous product behavior measurement.',
-              onChanged: onAnalyticsChanged,
-            ),
-            _ConsentTile(
-              value: usageOptIn,
-              title: 'Usage telemetry',
-              subtitle:
-                  'Track scans, targets, and operator activity locally for reporting.',
-              onChanged: onUsageChanged,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0x1A142231),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0x22324A61)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Icon(
-                    Icons.privacy_tip_outlined,
-                    color: Color(0xFF7AD7C3),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'This release stores access state locally so desktop and GitHub Pages can work without backend setup. The session model is ready for a real auth or CRM handoff later.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF9AB3C8),
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: submitting ? null : () => onSubmit(),
-                icon: Icon(
-                  submitting
-                      ? Icons.hourglass_top_rounded
-                      : Icons.login_rounded,
-                ),
-                label: Text(
-                  submitting ? 'Opening workspace' : 'Log in and continue',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccessInput extends StatelessWidget {
-  const _AccessInput({
-    required this.controller,
-    required this.label,
-    required this.hintText,
-    this.keyboardType,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hintText;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        labelStyle: const TextStyle(color: Color(0xFF9CB0C7)),
-        hintStyle: const TextStyle(color: Color(0xFF5C6B7D)),
-        filled: true,
-        fillColor: const Color(0x33131B29),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-}
-
-class _ConsentTile extends StatelessWidget {
-  const _ConsentTile({
-    required this.value,
-    required this.title,
-    required this.subtitle,
-    required this.onChanged,
-  });
-
-  final bool value;
-  final String title;
-  final String subtitle;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0x161A2532),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x22374A5F)),
-      ),
-      child: CheckboxListTile(
-        value: value,
-        onChanged: (bool? next) => onChanged(next ?? false),
-        checkboxShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-        ),
-        title: Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: const Color(0xFF91A4BB)),
-        ),
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      ),
     );
   }
 }

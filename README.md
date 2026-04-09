@@ -5,15 +5,7 @@ KoadMAP Plus is a Windows-first repository harvesting application with two opera
 - a headless scanner that stages structured repo artifacts
 - a desktop and web runtime workbench for exploring the tree, grouped sections, and key insights
 
-It now opens through a splash/login surface that captures:
-
-- operator email
-- optional name and organization
-- marketing consent
-- analytics consent
-- usage telemetry consent
-
-The current release stores that session locally so the same experience works on desktop and GitHub Pages without backend setup.
+The current release opens directly into the workbench in guest mode so desktop and GitHub Pages stay frictionless.
 
 ## Run the app
 
